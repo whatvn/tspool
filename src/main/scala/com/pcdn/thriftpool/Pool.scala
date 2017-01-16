@@ -7,17 +7,17 @@ import org.apache.thrift.TServiceClient
   * Created by Hung on 1/13/17.
   */
 
-trait Pool[T] {
+abstract class Pool[T] {
   protected val internalPool: GenericObjectPool[T]
 
-  private def getConn: T = internalPool.borrowObject()
+  def getConn: T = internalPool.borrowObject()
 
-  private def returnConn(conn: T): Unit = internalPool match {
+  def returnConn(conn: T): Unit = internalPool match {
     case null => ()
     case _ => internalPool.returnObject(conn)
   }
 
-  private def returnBrokenConn(conn: T): Unit = {
+  def returnBrokenConn(conn: T): Unit = {
     if (conn != null) {
       internalPool match {
         case null => ()
@@ -26,7 +26,7 @@ trait Pool[T] {
     }
   }
 
-  private def destroy(): Unit = internalPool match {
+  def destroy(): Unit = internalPool match {
     case null => ()
     case _ => internalPool.close()
   }
