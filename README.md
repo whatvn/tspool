@@ -1,5 +1,7 @@
 # tspool
 Simple Apache thrift connection pool for scala 
+Actually you can use it for any Client service with just a little modification 
+
 
 
 # Usage 
@@ -18,4 +20,6 @@ val res: Int = pool.withClient(c => {
 })
 println(res)
 ```
+
+
 
