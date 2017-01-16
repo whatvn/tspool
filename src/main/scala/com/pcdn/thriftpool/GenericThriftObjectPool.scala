@@ -17,7 +17,7 @@ object GenericThriftObjectPool {
   def apply[T <: TServiceClient : Manifest](host: String, port: Int): GenericThriftObjectPool[T] =
     new GenericThriftObjectPool[T](host, port)
 
-  class GenericThriftObjectPool[T <: TServiceClient : Manifest](val host: String,
+  private [thriftpool] class GenericThriftObjectPool[T <: TServiceClient : Manifest](val host: String,
                                                                 val port: Int)
     extends PooledObjectFactory[T] {
 
@@ -53,7 +53,7 @@ object GenericThriftObjectPool {
     override def makeObject(): PooledObject[T] = {
       val tTransportFactory = new TTransportFactory()
       val tFramedTransport = new TFramedTransport(new TSocket(host,
-        port, 10000))
+        port, 200))
       val transport = tTransportFactory.getTransport(tFramedTransport)
       transport.open()
       val constructor = manifest.runtimeClass.getConstructors()(0)
