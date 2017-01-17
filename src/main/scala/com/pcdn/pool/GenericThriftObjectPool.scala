@@ -1,4 +1,4 @@
-package com.pcdn.thriftpool
+package com.pcdn.pool
 
 import org.apache.commons.pool2.impl.DefaultPooledObject
 import org.apache.commons.pool2.{PooledObject, PooledObjectFactory}
@@ -15,8 +15,8 @@ object GenericThriftObjectPool {
   def apply[T <: TServiceClient : Manifest](host: String, port: Int): GenericThriftObjectPool[T] =
     new GenericThriftObjectPool[T](host, port)
 
-  private[thriftpool] class GenericThriftObjectPool[T <: TServiceClient : Manifest](val host: String,
-                                                                                    val port: Int)
+  private[pool] class GenericThriftObjectPool[T <: TServiceClient : Manifest](val host: String,
+                                                                              val port: Int)
     extends PooledObjectFactory[T] {
 
 
@@ -45,7 +45,6 @@ object GenericThriftObjectPool {
         port, 200))
       val transport = tTransportFactory.getTransport(tFramedTransport)
       transport.open()
-      println(manifest.runtimeClass.toGenericString)
       val constructor = manifest.runtimeClass.getConstructors()(0)
       val protocol = new TBinaryProtocol(transport)
       val client = constructor.newInstance(protocol)

@@ -1,7 +1,6 @@
-package com.pcdn.thriftpool
+package com.pcdn.pool
 
-import org.apache.commons.pool2.impl.{GenericObjectPool, GenericObjectPoolConfig}
-import org.apache.thrift.TServiceClient
+import org.apache.commons.pool2.impl.GenericObjectPool
 
 /**
   * Created by Hung on 1/13/17.
@@ -41,17 +40,5 @@ abstract class Pool[T] {
   }
 }
 
-object Pool {
 
-  def apply[T <: TServiceClient : Manifest](poolConfig: GenericObjectPoolConfig, host: String, port: Int): Pool[T] = {
-    new PoolImpl[T](poolConfig, host, port)
-  }
 
-  private class PoolImpl[T <: TServiceClient : Manifest](val poolConfig: GenericObjectPoolConfig, val host: String, val port: Int) extends Pool[T] {
-    override protected val internalPool: GenericObjectPool[T] = {
-      val poolFactory = GenericThriftObjectPool[T](host, port)
-      new GenericObjectPool[T](poolFactory, poolConfig)
-    }
-  }
-
-}
