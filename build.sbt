@@ -7,8 +7,10 @@ scalaVersion := "2.11.8"
 libraryDependencies ++= {
   val commonPoolV = "2.4.2"
   val thriftV = "0.9.3"
+  val spymemcachedV = "2.12.1"
   Seq(
     "org.apache.commons" % "commons-pool2" % commonPoolV,
-    "org.apache.thrift" % "libthrift" % thriftV
+    "org.apache.thrift" % "libthrift" % thriftV,
+    "net.spy" % "spymemcached" % spymemcachedV
   )
 }
