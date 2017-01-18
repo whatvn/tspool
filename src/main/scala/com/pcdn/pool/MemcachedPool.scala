@@ -18,5 +18,4 @@ object MemcachedPool {
       new GenericObjectPool(poolFactory, poolConfig)
     }
   }
-
 }

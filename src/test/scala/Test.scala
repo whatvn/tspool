@@ -1,4 +1,4 @@
-import com.pcdn.pool.{MemcachedPool, ThriftPool}
+import com.pcdn.pool._
 import net.spy.memcached.MemcachedClient
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import thrift.PlusMe.Client
@@ -9,14 +9,21 @@ import thrift.PlusMe.Client
 object Test {
 
   def main(args: Array[String]): Unit = {
-    val poolConfig = new GenericObjectPoolConfig
-    poolConfig.setMaxTotal(10)
-    poolConfig.setMinIdle(5)
-    val pool = ThriftPool[Client](poolConfig, "127.0.0.1", 9998)
-    val res: Int = pool.withClient(c => {
-      c.plusMe(1, 2)
-    })
-    println(res)
+val poolConfig = new GenericObjectPoolConfig
+poolConfig.setMaxTotal(10)
+poolConfig.setMinIdle(5)
+val server = Server("127.0.0.1", 9999)
+val server1 = Server("127.0.0.1", 9998)
+val pool = ThriftPool[Client](poolConfig, Servers(List(server, server1)))
+try {
+  val res: Int = pool.withClient(c => {
+    c.plusMe(1, 2)
+  })
+  println(res)
+} catch {
+  case x: PoolConnectionException => println(x.getMessage)
+}
+
 
     val mcPool = MemcachedPool[MemcachedClient](poolConfig, "192.168.10.224", 11212)
     val res1: AnyRef = mcPool.withClient(c => {
