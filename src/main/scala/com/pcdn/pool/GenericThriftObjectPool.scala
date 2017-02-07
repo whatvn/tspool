@@ -7,9 +7,11 @@ import org.apache.commons.pool2.{PooledObject, PooledObjectFactory}
 import org.apache.thrift.TServiceClient
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TTransport
+
 import scala.language.postfixOps
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by Hung on 1/12/17.
@@ -22,6 +24,7 @@ case class PoolConnectionException(message: String = "", cause: Throwable = null
 object GenericThriftObjectPool {
   implicit val timeout = Timeout(200 milliseconds)
   implicit val ec: ExecutionContextExecutor = ExecutionContext.global
+
   def apply[T <: TServiceClient : Manifest](servers: Servers): GenericThriftObjectPool[T] = {
     new GenericThriftObjectPool[T](servers)
   }
@@ -50,21 +53,30 @@ object GenericThriftObjectPool {
     override def passivateObject(p: PooledObject[T]): Unit = destroyObject(p)
 
 
+    private def borrowConn(): Try[Option[TTransport]] = {
+      Try {
+        val res = BackendOperator(servers) ? "givemeconnection"
+        Await.result(res, timeout.duration).asInstanceOf[Option[TTransport]]
+      }
+    }
 
     override def makeObject(): PooledObject[T] = {
-      val res = BackendOperator(servers) ? "givemeconnection"
-      val tTransport: Option[TTransport] = Await.result(res, timeout.duration).asInstanceOf[Option[TTransport]]
-      tTransport match {
-        case None => throw PoolConnectionException("No available server")
-        case Some(connection) => {
-          /* it's safe to use 0 as index here because there is
-           only one way to construct Thrift Client
-          */
-          val constructor = manifest.runtimeClass.getConstructors()(0)
-          val protocol = new TBinaryProtocol(connection)
-          val client = constructor.newInstance(protocol)
-          new DefaultPooledObject[T](client.asInstanceOf[T])
+      borrowConn() match {
+        case Success(optional) => {
+          optional match {
+            case None => throw PoolConnectionException("No available server")
+            case Some(connection) => {
+              /* it's safe to use 0 as index here because there is
+               only one way to construct Thrift Client
+              */
+              val constructor = manifest.runtimeClass.getConstructors()(0)
+              val protocol = new TBinaryProtocol(connection)
+              val client = constructor.newInstance(protocol)
+              new DefaultPooledObject[T](client.asInstanceOf[T])
+            }
+          }
         }
+        case Failure(t) => throw PoolConnectionException(t.getMessage)
       }
     }
   }

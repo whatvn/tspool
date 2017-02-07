@@ -9,20 +9,23 @@ import thrift.PlusMe.Client
 object Test {
 
   def main(args: Array[String]): Unit = {
-val poolConfig = new GenericObjectPoolConfig
-poolConfig.setMaxTotal(10)
-poolConfig.setMinIdle(5)
-val server = Server("127.0.0.1", 9999)
-val server1 = Server("127.0.0.1", 9998)
-val pool = ThriftPool[Client](poolConfig, Servers(List(server, server1)))
-try {
-  val res: Int = pool.withClient(c => {
-    c.plusMe(1, 2)
-  })
-  println(res)
-} catch {
-  case x: PoolConnectionException => println(x.getMessage)
-}
+    val poolConfig = new GenericObjectPoolConfig
+    poolConfig.setMaxTotal(10)
+    poolConfig.setMinIdle(5)
+    val server = Server("127.0.0.1", 9999)
+    val server1 = Server("127.0.0.1", 9998)
+    val pool = ThriftPool[Client](poolConfig, Servers(List(server, server1)))
+    while (true) {
+      try {
+        val res: Int = pool.withClient(c => {
+          c.plusMe(1, 2)
+        })
+        println(res)
+      } catch {
+        case x: PoolConnectionException => println(x.getMessage)
+      }
+      Thread.sleep(1000)
+    }
 
 
     val mcPool = MemcachedPool[MemcachedClient](poolConfig, "192.168.10.224", 11212)

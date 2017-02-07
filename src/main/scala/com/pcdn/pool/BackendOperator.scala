@@ -4,8 +4,10 @@ import java.util.Random
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.thrift.transport._
+
 import scala.concurrent.duration._
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.Future
 import scala.language.postfixOps
 
 
@@ -29,13 +31,13 @@ object BackendOperator {
     actor
   }
 
-  def deactivateServer(server: Server) = {
+  private def deactivateServer(server: Server) = {
     deadServers += server
     activeServers -= server
   }
 
 
-  def activeServer(server: Server) = {
+  private def activeServer(server: Server) = {
     activeServers += server
     deadServers -= server
   }
@@ -47,10 +49,13 @@ object BackendOperator {
         if (deadServers.nonEmpty) deadServers.foreach {
           s => if (check(s)) activeServer(s)
         }
-      case "givemeconnection" => sender() ! get(activeServers.toList)
+      case "givemeconnection" => {
+        val s: ActorRef = sender()
+        Future { get (activeServers.toList, s) }
+      }
     }
 
-    private def get(servers: List[Server]): Option[TTransport] = {
+    private def get(servers: List[Server], sender: ActorRef): Unit = {
       if (servers.isEmpty) None
       else {
         val num = if (servers.length == 1) 0 else new Random().nextInt(servers.length)
@@ -58,8 +63,8 @@ object BackendOperator {
         createConnection(server) match {
           case None =>
             deactivateServer(server)
-            get(activeServers.toList)
-          case x => x
+            get(activeServers.toList, sender)
+          case x => sender ! x
         }
       }
     }
