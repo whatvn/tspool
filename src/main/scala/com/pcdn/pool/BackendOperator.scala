@@ -9,6 +9,7 @@ import scala.concurrent.duration._
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 import scala.language.postfixOps
+import scala.util.{Failure, Success}
 
 
 /**
@@ -46,47 +47,44 @@ object BackendOperator {
   class BackendOperator extends Actor {
     override def receive: Receive = {
       case "check" =>
-        if (deadServers.nonEmpty) deadServers.foreach {
-          s => if (check(s)) activeServer(s)
-        }
-      case "givemeconnection" => {
+        if (deadServers.nonEmpty) deadServers.foreach(check)
+      case "givemeconnection" =>
         val s: ActorRef = sender()
-        Future { get (activeServers.toList, s) }
-      }
+        Future {
+          get(activeServers.toList, s)
+        }
     }
 
     private def get(servers: List[Server], sender: ActorRef): Unit = {
-      if (servers.isEmpty) None
+      if (servers.isEmpty) throw PoolConnectionException("No available server")
       else {
         val num = if (servers.length == 1) 0 else new Random().nextInt(servers.length)
         val server = servers(num)
-        createConnection(server) match {
-          case None =>
+        createConnection(server) onComplete {
+          case Failure(_) =>
             deactivateServer(server)
             get(activeServers.toList, sender)
-          case x => sender ! x
+          case Success(x) => sender ! x
         }
       }
     }
 
-    private def check(server: Server): Boolean = {
-      createConnection(server) match {
-        case None => false
-        case _ => true
+    private def check(server: Server) = {
+      createConnection(server) onComplete {
+        case Failure(_) => ()
+        case Success(_) => activeServer(server)
       }
     }
 
-    private def createConnection(server: Server): Option[TTransport] = {
+
+    private def createConnection(server: Server): Future[TTransport] = Future {
       val tTransportFactory = new TTransportFactory()
       val tFramedTransport: TFramedTransport = new TFramedTransport(new TSocket(server.host,
         server.port, 200))
       val transport: TTransport = tTransportFactory.getTransport(tFramedTransport)
-      try {
-        transport.open()
-        Some(transport)
-      } catch {
-        case ex: TTransportException => None
-      }
+      transport.open()
+      transport
     }
   }
+
 }

@@ -22,7 +22,7 @@ object Test {
         })
         println(res)
       } catch {
-        case x: PoolConnectionException => println(x.getMessage)
+        case x: PoolConnectionException => x.printStackTrace()
       }
       Thread.sleep(1000)
     }

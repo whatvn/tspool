@@ -32,6 +32,7 @@ object GenericThriftObjectPool {
   private[pool] class GenericThriftObjectPool[T <: TServiceClient : Manifest](val servers: Servers)
     extends PooledObjectFactory[T] {
 
+    val backendOperator = BackendOperator(servers)
 
     override def destroyObject(p: PooledObject[T]): Unit = {
       val obj: T = p.getObject
@@ -53,28 +54,23 @@ object GenericThriftObjectPool {
     override def passivateObject(p: PooledObject[T]): Unit = destroyObject(p)
 
 
-    private def borrowConn(): Try[Option[TTransport]] = {
+    private def borrowConn(): Try[TTransport] = {
       Try {
-        val res = BackendOperator(servers) ? "givemeconnection"
-        Await.result(res, timeout.duration).asInstanceOf[Option[TTransport]]
+        val res = backendOperator ? "givemeconnection"
+        Await.result(res, timeout.duration).asInstanceOf[TTransport]
       }
     }
 
     override def makeObject(): PooledObject[T] = {
       borrowConn() match {
-        case Success(optional) => {
-          optional match {
-            case None => throw PoolConnectionException("No available server")
-            case Some(connection) => {
-              /* it's safe to use 0 as index here because there is
-               only one way to construct Thrift Client
-              */
-              val constructor = manifest.runtimeClass.getConstructors()(0)
-              val protocol = new TBinaryProtocol(connection)
-              val client = constructor.newInstance(protocol)
-              new DefaultPooledObject[T](client.asInstanceOf[T])
-            }
-          }
+        case Success(tTransport) => {
+          /* it's safe to use 0 as index here because there is
+           only one way to construct Thrift Client
+          */
+          val constructor = manifest.runtimeClass.getConstructors()(0)
+          val protocol = new TBinaryProtocol(tTransport)
+          val client = constructor.newInstance(protocol)
+          new DefaultPooledObject[T](client.asInstanceOf[T])
         }
         case Failure(t) => throw PoolConnectionException(t.getMessage)
       }
